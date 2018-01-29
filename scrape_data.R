@@ -47,8 +47,26 @@ episode_link
 ep_data <- data.frame(episode_names, episode_link) %>%
   mutate(episode_link_full = paste0("https://gimletmedia.com/episode/", episode_link, "/"))
 
-ep_data$episode_link_full[1] %>%
+transcript <- ep_data$episode_link_full[1] %>%
   read_html() %>%
   html_nodes("div.episode__transcript") %>%
-  html_text()
+  html_text() %>%
+  str_split("\\\n") %>%
+  data.frame(stringsAsFactors = FALSE)
+
+colnames(transcript) <- "line"
+
+transcript$line <- transcript$line %>%
+  str_replace_all("[\\\n]", "") %>%
+  str_replace_all("[\\\t]", "") %>%
+  str_trim()
+
+transcript <- transcript %>%
+  filter(nchar(line) > 0) %>%
+  mutate(
+    speaker = str_extract(line, "^[[:upper:]]+"),
+    line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""),
+    line = str_replace_all(line, "^[[:upper:]]+:", "")
+  ) %>%
+  select(speaker, line)
 
