@@ -1,6 +1,8 @@
 library(rvest)
 library(dplyr)
 library(stringr)
+library(tidytext)
+library(ggplot2)
 
 # base url
 reply_all_url <- "https://gimletmedia.com/show/reply-all/all/"
@@ -61,12 +63,37 @@ transcript$line <- transcript$line %>%
   str_replace_all("[\\\t]", "") %>%
   str_trim()
 
-transcript <- transcript %>%
-  filter(nchar(line) > 0) %>%
+transcript_new <- transcript %>%
+  filter(
+    nchar(line) > 0,
+    !str_detect(line, "^\\[")
+  ) %>%
   mutate(
+    linenumber = row_number(),
     speaker = str_extract(line, "^[[:upper:]]+"),
     line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""),
-    line = str_replace_all(line, "^[[:upper:]]+:", "")
+    text = str_replace_all(line, "^[[:upper:]]+:", "")
   ) %>%
-  select(speaker, line)
+  select(speaker, text, linenumber)
 
+transcript_tidy <- transcript_new %>%
+  unnest_tokens(word, text)
+
+data("stop_words")
+transcript_clean <- transcript_tidy %>%
+  anti_join(stop_words)
+
+transcript_clean %>%
+  count(word, sort = TRUE)
+
+bing <- get_sentiments("bing")
+
+reply_all_sentiment <- transcript_tidy %>%
+  inner_join(bing) %>%
+  count(index = linenumber %/% 5, sentiment) %>%
+  tidyr::spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+ggplot(reply_all_sentiment, aes(index, sentiment)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  theme_minimal()
