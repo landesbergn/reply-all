@@ -115,9 +115,12 @@ episode_names <- episode_names %>%
   filter(
     str_detect(episode, "episode-player"),
     !str_detect(episode, "re-broadcast"),
-    !str_detect(episode, "rebroadcsast"),
+    !str_detect(episode, "rebroadcast"),
+    !str_detect(episode, "revisited"),
     !str_detect(episode, "presents"),
-    !str_detect(episode, "introducing")
+    !str_detect(episode, "introducing"),
+    !str_detect(episode, "-2#"),
+    !str_detect(episode, "updated")
   ) %>%
   distinct()
 
@@ -126,35 +129,50 @@ ep_data <- episode_names %>%
     episode_link = paste0("https://www.gimletmedia.com", episode)
   )
 
-transcript <- ep_data$episode_link[1] %>%
-  read_html() %>%
-  html_nodes(".episode-transcript") %>%
-  html_text() %>%
-  str_split("\\\n") %>%
-  data.frame(stringsAsFactors = FALSE)
+getTranscript <- function(episode_link) {
 
-colnames(transcript) <- "line"
+  transcript <- episode_link %>%
+    read_html() %>%
+    html_nodes(".episode-transcript") %>%
+    html_text() %>%
+    str_split("\\\n") %>%
+    data.frame(stringsAsFactors = FALSE)
 
-transcript$line <- transcript$line %>%
-  str_replace_all("[\\\n]", "") %>%
-  str_replace_all("[\\\t]", "") %>%
-  str_trim()
+  colnames(transcript) <- "line"
 
-transcript_new <- transcript %>%
-  filter(
-    nchar(line) > 0,
-    !str_detect(line, "^\\[")
-  ) %>%
+  transcript$line <- transcript$line %>%
+    str_replace_all("[\\\n]", "") %>%
+    str_replace_all("[\\\t]", "") %>%
+    str_trim()
+
+  transcript_new <- transcript %>%
+    filter(
+      nchar(line) > 0,
+      !str_detect(line, "^\\[")
+    ) %>%
+    mutate(
+      linenumber = row_number(),
+      speaker = str_extract(line, "^[[:upper:]]+"),
+      line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""),
+      text = str_replace_all(line, "^[[:upper:]]+:", "")
+    ) %>%
+    select(speaker, text, linenumber)
+
+  transcript_tidy <- transcript_new %>%
+    unnest_tokens(word, text)
+
+  return(transcript_tidy)
+}
+
+
+ep_data <- ep_data %>%
   mutate(
-    linenumber = row_number(),
-    speaker = str_extract(line, "^[[:upper:]]+"),
-    line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""),
-    text = str_replace_all(line, "^[[:upper:]]+:", "")
-  ) %>%
-  select(speaker, text, linenumber)
+    transcript = purrr::map(episode_link, getTranscript)
+  )
 
-transcript_tidy <- transcript_new %>%
-  unnest_tokens(word, text)
+
+
+### stop here
 
 data("stop_words")
 transcript_clean <- transcript_tidy %>%
