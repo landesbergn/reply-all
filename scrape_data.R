@@ -142,6 +142,11 @@ ep_data <- episode_names %>%
 # function to get a nicely formatted transcript
 #   input: full URL to page of individiaul episode
 #   output: list, which has a 'tidy' version of the episode transcript
+
+## TODO make better -
+##    remove speaker T and word Transcript
+##    remove this crap: list(speaker = c("T", "S", "S", "S"), linenumber = c(1, 2, 2, 2), word = c("transcript", "show", "full", "transcript"))
+
 getTranscript <- function(episode_link) {
 
   # get the transcript from the webpage using the node '.episode-transcript'
@@ -181,32 +186,52 @@ getTranscript <- function(episode_link) {
   return(transcript_tidy)
 }
 
-
-pb <- progress_estimated(nrow(ep_data$episode_link))
-
 # use purrr to map the 'getTranscript' function over all of the URLS in the ep_data data frame
 ep_data <- ep_data %>%
   mutate(
     transcript = map(episode_link, getTranscript)
   )
 
+tidy_ep_data <- ep_data %>%
+  unnest(transcript)
+
 # import 'stop words' from tidytext, e.g. words like 'a' or 'the' or 'I'
 data("stop_words")
 
 # remove stop words with an anti_join
-transcript_clean <- transcript_tidy %>%
+tidy_ep_data_clean <- tidy_ep_data %>%
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  filter(!is.na(word)) %>%
   anti_join(stop_words)
 
-# quick check of the top words
-transcript_clean %>%
-  count(word, sort = TRUE)
+# quick check of the top words accross all episodes
+tidy_ep_data_clean %>%
+  group_by(word) %>%
+  count(word, sort = TRUE) %>%
+  filter(n >= 500)
+
+# plot words used 1000 times
+tidy_ep_data_clean %>% group_by(speaker) %>% tally() %>% View()
+  group_by(word) %>%
+  count(word, sort = TRUE) %>%
+  filter(n >= 500) %>%
+  ggplot(aes(x = reorder(word, n), y = n)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    scale_y_continuous(labels = scales::comma_format()) +
+    labs(
+      title = "Words used in Reply All Episodes",
+      x = "",
+      y = "Word Frequency"
+    ) +
+    theme_bw(base_size = 16)
 
 # import sentiment information, via tidytext
 bing <- get_sentiments("bing")
 
 # create a dataframe the joins words to sentiment, divides sentiment
 #   accross the length of the transcript, and organizes the data for plotting
-reply_all_sentiment <- transcript_tidy %>%
+reply_all_sentiment <- tidy_ep_data_clean %>%
   inner_join(bing) %>%
   count(index = linenumber %/% 5, sentiment) %>%
   tidyr::spread(sentiment, n, fill = 0) %>%
