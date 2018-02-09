@@ -3,6 +3,8 @@ library(dplyr)
 library(stringr)
 library(tidytext)
 library(ggplot2)
+library(tidyr)
+library(purrr)
 
 # base url
 reply_all_url <- "https://gimletmedia.com/show/reply-all/all/"
@@ -179,13 +181,14 @@ getTranscript <- function(episode_link) {
   return(transcript_tidy)
 }
 
+
+pb <- progress_estimated(nrow(ep_data$episode_link))
+
 # use purrr to map the 'getTranscript' function over all of the URLS in the ep_data data frame
 ep_data <- ep_data %>%
   mutate(
-    transcript = purrr::map(episode_link, getTranscript)
+    transcript = map(episode_link, getTranscript)
   )
-
-### stop here
 
 # import 'stop words' from tidytext, e.g. words like 'a' or 'the' or 'I'
 data("stop_words")
