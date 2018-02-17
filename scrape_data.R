@@ -5,106 +5,7 @@ library(tidytext)
 library(ggplot2)
 library(tidyr)
 library(purrr)
-
-# base url
-reply_all_url <- "https://gimletmedia.com/show/reply-all/all/"
-
-# get nav bar to determine how many pages to scrape
-nav <- reply_all_url %>%
-  read_html() %>%
-  html_nodes("nav.feed__pagination") %>%
-  html_text() %>%
-  str_split("\\\n")
-
-nav <- as.numeric(nav[[1]])
-max_page <- max(na.omit(nav))
-
-# scrape page for episode names
-
-page_1_url <- "https://gimletmedia.com/show/reply-all/all/"
-
-episode_names <- page_1_url %>%
-  read_html() %>%
-  html_nodes("h3") %>%
-  html_text() %>%
-  str_replace_all("[\\\n]", "") %>%
-  str_replace_all("[\\\t]", "") %>%
-  data.frame()
-
-colnames(episode_names) <- "episode"
-
-episode_names <- episode_names %>% filter(str_detect(episode, "\\#"))
-
-episode_link <- episode_names$episode %>%
-  str_replace_all("#", "") %>%
-  str_replace_all("[[:punct:]]", "") %>%
-  str_replace_all(" of ", "") %>%
-  str_replace_all("the", "") %>%
-  str_replace_all("the", "") %>%
-  str_replace_all("The ", "") %>%
-  str_replace(" I$", "") %>%
-  str_to_lower() %>%
-  str_replace_all(" ", "-")
-
-episode_link
-
-ep_data <- data.frame(episode_names, episode_link) %>%
-  mutate(episode_link_full = paste0("https://gimletmedia.com/episode/", episode_link, "/"))
-
-transcript <- ep_data$episode_link_full[1] %>%
-  read_html() %>%
-  html_nodes("div.episode__transcript") %>%
-  html_text() %>%
-  str_split("\\\n") %>%
-  data.frame(stringsAsFactors = FALSE)
-
-colnames(transcript) <- "line"
-
-transcript$line <- transcript$line %>%
-  str_replace_all("[\\\n]", "") %>%
-  str_replace_all("[\\\t]", "") %>%
-  str_trim()
-
-transcript_new <- transcript %>%
-  filter(
-    nchar(line) > 0,
-    !str_detect(line, "^\\[")
-  ) %>%
-  mutate(
-    linenumber = row_number(),
-    speaker = str_extract(line, "^[[:upper:]]+"),
-    line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""),
-    text = str_replace_all(line, "^[[:upper:]]+:", "")
-  ) %>%
-  select(speaker, text, linenumber)
-
-transcript_tidy <- transcript_new %>%
-  unnest_tokens(word, text)
-
-data("stop_words")
-transcript_clean <- transcript_tidy %>%
-  anti_join(stop_words)
-
-transcript_clean %>%
-  count(word, sort = TRUE)
-
-bing <- get_sentiments("bing")
-
-reply_all_sentiment <- transcript_tidy %>%
-  inner_join(bing) %>%
-  count(index = linenumber %/% 5, sentiment) %>%
-  tidyr::spread(sentiment, n, fill = 0) %>%
-  mutate(sentiment = positive - negative)
-
-ggplot(reply_all_sentiment, aes(index, sentiment)) +
-  geom_bar(stat = "identity", show.legend = FALSE) +
-  theme_minimal()
-
-##########
-##########
-########## It was at this point... gimlet changed their web pages ########
-##########
-##########
+library(RSelenium)
 
 # base url
 reply_all_url <- "https://www.gimletmedia.com/reply-all/all#all-episodes-list"
@@ -147,10 +48,27 @@ ep_data <- episode_names %>%
 ##    remove speaker T and word Transcript
 ##    remove this crap: list(speaker = c("T", "S", "S", "S"), linenumber = c(1, 2, 2, 2), word = c("transcript", "show", "full", "transcript"))
 
+browser <- remoteDriver(
+  remoteServerAddr = "0.0.0.0",
+  port = 4445L,
+  browserName = "firefox"
+)
+
+browser$open(silent = TRUE)
+
 getTranscript <- function(episode_link) {
 
+  print(episode_link)
+  # browser$open(silent = TRUE)
+  browser$navigate(episode_link)
+  Sys.sleep(5)
+  get_full_button <- browser$findElement(using = 'css selector', ".expand-transcript")
+  get_full_button$clickElement()
+  page_source <- browser$getPageSource()
+  # browser$close()
+
   # get the transcript from the webpage using the node '.episode-transcript'
-  transcript <- episode_link %>%
+  transcript <- page_source[[1]] %>%
     read_html() %>%
     html_nodes(".episode-transcript") %>%
     html_text() %>%
@@ -169,7 +87,7 @@ getTranscript <- function(episode_link) {
   transcript_new <- transcript %>%
     filter(
       nchar(line) > 0, # make sure lines have _some_ content in them
-      !str_detect(line, "^\\[") # make sure the line isn't non-spoken, aka '[Laughs']
+      !str_detect(line, "^\\[") # make sure the line isn't non-spoken, aka '[Laughs]' or '[Reply All Theme Music]'
     ) %>%
     mutate(
       linenumber = row_number(), # get the line number (1 is the first line, 2 is the second, etc.)
@@ -187,6 +105,7 @@ getTranscript <- function(episode_link) {
 }
 
 # use purrr to map the 'getTranscript' function over all of the URLS in the ep_data data frame
+# takes ~10 minutes to run
 ep_data <- ep_data %>%
   mutate(
     transcript = map(episode_link, getTranscript)
@@ -243,4 +162,3 @@ reply_all_sentiment <- tidy_ep_data_clean %>%
 ggplot(reply_all_sentiment, aes(x = index, y = sentiment, group = index)) +
   geom_line(stat = "identity", show.legend = FALSE, aes(color = sentiment_cat)) +
   theme_minimal()
-
