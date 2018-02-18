@@ -59,41 +59,72 @@ browser$open(silent = TRUE)
 getTranscript <- function(episode_link) {
 
   print(episode_link)
-  # browser$open(silent = TRUE)
-  browser$navigate(episode_link)
-  Sys.sleep(5)
-  get_full_button <- browser$findElement(using = 'css selector', ".expand-transcript")
-  get_full_button$clickElement()
-  page_source <- browser$getPageSource()
-  # browser$close()
 
   # get the transcript from the webpage using the node '.episode-transcript'
-  transcript <- page_source[[1]] %>%
+  transcript <- episode_link %>%
     read_html() %>%
     html_nodes(".episode-transcript") %>%
-    html_text() %>%
-    str_split("\\\n") %>% # split the transcript into more manageable blocks (1 line)
-    data.frame(stringsAsFactors = FALSE) # turn to a DF for easier manipulation
+    html_text()
 
-  colnames(transcript) <- "line"
+  ## ok this is gross, but handling some bad laling in specific episodes
+  if (episode_link == "https://www.gimletmedia.com/reply-all/79-boy-in-photo#episode-player") {
+    transcript_clean <- data.frame(
+      rbind("PJ", data.frame(setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"), stringsAsFactors = FALSE)),
+      setNames(data_frame(unlist(strsplit(transcript, "[^.a-z]+:", perl = T))), "text") %>%
+        mutate(text = trimws(text)) %>%
+        filter(
+          text != "Transcript",
+          text != "Transcript\n        [Theme music",
+          text != "Transcript\n        [theme music"
+        )
+    ) %>%
+      mutate(
+        speaker = trimws(speaker),
+        speaker = str_replace_all(speaker, "[^A-Z ]", ""),
+        speaker = str_replace_all(speaker, "THEME MUSIC", ""),
+        speaker = str_replace_all(speaker, "RING", ""),
+        speaker = str_replace_all(speaker, "MUSIC", ""),
+        speaker = str_replace_all(speaker, "BREAK", "")
+      )
+  } else if (epsiode_link == "https://www.gimletmedia.com/reply-all/52-raising-the-bar#episode-player" {
 
-  # remove web formatting for new lines or tabs
-  transcript$line <- transcript$line %>%
-    str_replace_all("[\\\n]", "") %>% # remove new lines
-    str_replace_all("[\\\t]", "") %>% # remove tabs
-    str_trim() # remove leading and trailing whitespace
-
-  # do some light cleaning of the transcript
-  transcript_new <- transcript %>%
-    filter(
-      nchar(line) > 0, # make sure lines have _some_ content in them
-      !str_detect(line, "^\\[") # make sure the line isn't non-spoken, aka '[Laughs]' or '[Reply All Theme Music]'
+  } else {
+    transcript_clean <- data.frame(
+      setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"),
+      setNames(data_frame(unlist(strsplit(transcript, "[^.a-z]+:", perl = T))), "text") %>%
+        mutate(text = trimws(text)) %>%
+        filter(
+          text != "Transcript",
+          text != "Transcript\n        [Theme music",
+          text != "Transcript\n        [theme music"
+        )
     ) %>%
     mutate(
+      speaker = trimws(speaker),
+      speaker = str_replace_all(speaker, "[^A-Z ]", ""),
+      speaker = str_replace_all(speaker, "THEME MUSIC", ""),
+      speaker = str_replace_all(speaker, "RING", ""),
+      speaker = str_replace_all(speaker, "MUSIC", ""),
+      speaker = str_replace_all(speaker, "BREAK", "")
+    )
+  }
+  # remove web formatting for new lines or tabs
+  # transcript$line <- transcript$line %>%
+  #   str_replace_all("[\\\n]", "") %>% # remove new lines
+  #   str_replace_all("[\\\t]", "") %>% # remove tabs
+  #   str_trim() # remove leading and trailing whitespace
+
+  # do some light cleaning of the transcript
+  transcript_new <- transcript_clean %>%
+    # filter(
+    #   nchar(line) > 0, # make sure lines have _some_ content in them
+    #   # !str_detect(line, "^\\[") # make sure the line isn't non-spoken, aka '[Laughs]' or '[Reply All Theme Music]'
+    # ) %>%
+    mutate(
       linenumber = row_number(), # get the line number (1 is the first line, 2 is the second, etc.)
-      speaker = str_extract(line, "^[[:upper:]]+"), # speaker of the line is refered to at the start of a line, e.g. '[ALEX]' or '[PJ]'
-      line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""), # get rid of extra crap in lines TODO find exmaple
-      text = str_replace_all(line, "^[[:upper:]]+:", "") # TODO what is this again?
+      # speaker = str_extract(line, "^[[:upper:]]+"), # speaker of the line is refered to at the start of a line, e.g. '[ALEX]' or '[PJ]'
+      # line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""), # get rid of extra crap in lines TODO find exmaple
+      # text = str_replace_all(line, "^[[:upper:]]+:", "") # TODO what is this again?
     ) %>%
     select(speaker, text, linenumber)
 
@@ -162,3 +193,16 @@ reply_all_sentiment <- tidy_ep_data_clean %>%
 ggplot(reply_all_sentiment, aes(x = index, y = sentiment, group = index)) +
   geom_line(stat = "identity", show.legend = FALSE, aes(color = sentiment_cat)) +
   theme_minimal()
+
+
+
+
+
+
+test <- test_link %>%
+  read_html() %>%
+  html_nodes(".episode-transcript") %>%
+  html_text()
+
+
+
