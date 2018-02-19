@@ -5,7 +5,6 @@ library(tidytext)
 library(ggplot2)
 library(tidyr)
 library(purrr)
-library(RSelenium)
 
 # base url
 reply_all_url <- "https://www.gimletmedia.com/reply-all/all#all-episodes-list"
@@ -39,23 +38,6 @@ ep_data <- episode_names %>%
     episode_link = paste0("https://www.gimletmedia.com", episode)
   )
 
-
-# function to get a nicely formatted transcript
-#   input: full URL to page of individiaul episode
-#   output: list, which has a 'tidy' version of the episode transcript
-
-## TODO make better -
-##    remove speaker T and word Transcript
-##    remove this crap: list(speaker = c("T", "S", "S", "S"), linenumber = c(1, 2, 2, 2), word = c("transcript", "show", "full", "transcript"))
-
-browser <- remoteDriver(
-  remoteServerAddr = "0.0.0.0",
-  port = 4445L,
-  browserName = "firefox"
-)
-
-browser$open(silent = TRUE)
-
 getTranscript <- function(episode_link) {
 
   print(episode_link)
@@ -66,39 +48,33 @@ getTranscript <- function(episode_link) {
     html_nodes(".episode-transcript") %>%
     html_text()
 
+  text <- setNames(data_frame(unlist(strsplit(transcript, "[^.a-z]+:", perl = T))), "text") %>%
+    mutate(
+      text = trimws(text),
+      text = str_replace_all(text, "Transcript\n        ", "")
+    ) %>%
+    filter(
+      text != "Transcript",
+      text != "[Theme music",
+      text != "[theme music"
+    )
+
   ## ok this is gross, but handling some bad laling in specific episodes
   if (episode_link == "https://www.gimletmedia.com/reply-all/79-boy-in-photo#episode-player") {
-    transcript_clean <- data.frame(
-      rbind("PJ", data.frame(setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"), stringsAsFactors = FALSE)),
-      setNames(data_frame(unlist(strsplit(transcript, "[^.a-z]+:", perl = T))), "text") %>%
-        mutate(text = trimws(text)) %>%
-        filter(
-          text != "Transcript",
-          text != "Transcript\n        [Theme music",
-          text != "Transcript\n        [theme music"
-        )
-    ) %>%
-      mutate(
-        speaker = trimws(speaker),
-        speaker = str_replace_all(speaker, "[^A-Z ]", ""),
-        speaker = str_replace_all(speaker, "THEME MUSIC", ""),
-        speaker = str_replace_all(speaker, "RING", ""),
-        speaker = str_replace_all(speaker, "MUSIC", ""),
-        speaker = str_replace_all(speaker, "BREAK", "")
-      )
-  } else if (epsiode_link == "https://www.gimletmedia.com/reply-all/52-raising-the-bar#episode-player" {
-
+    speaker <- rbind("PJ", data.frame(setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"), stringsAsFactors = FALSE))
+  } else if (episode_link == "https://www.gimletmedia.com/reply-all/52-raising-the-bar#episode-player") {
+    speaker <- rbind("PJ", data.frame(setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"), stringsAsFactors = FALSE))
+    text <- text %>% mutate(text = str_replace_all(text, "Transcript\n        PJ Vogt: ", ""))
+  } else if (episode_link == "https://www.gimletmedia.com/reply-all/31-bonus-the-reddit-implosion-explainer#episode-player") {
+    speaker <- rbind("PJ", data.frame(setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"), stringsAsFactors = FALSE))
+  } else if (episode_link == "https://www.gimletmedia.com/reply-all/2-instagram-for-doctors#episode-player") {
+    speaker <- rbind("PJ", data.frame(setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"), stringsAsFactors = FALSE))
+    text <- text %>% mutate(text = str_replace_all(text, "[THEME SONG]PJ Vogt: ", ""))
   } else {
-    transcript_clean <- data.frame(
-      setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker"),
-      setNames(data_frame(unlist(strsplit(transcript, "[^.a-z]+:", perl = T))), "text") %>%
-        mutate(text = trimws(text)) %>%
-        filter(
-          text != "Transcript",
-          text != "Transcript\n        [Theme music",
-          text != "Transcript\n        [theme music"
-        )
-    ) %>%
+    speaker <- setNames(gsubfn::strapply(transcript, "[^.a-z]+:", c, perl = TRUE), "speaker")
+  }
+
+  transcript_clean <- data.frame(text, speaker) %>%
     mutate(
       speaker = trimws(speaker),
       speaker = str_replace_all(speaker, "[^A-Z ]", ""),
@@ -107,24 +83,11 @@ getTranscript <- function(episode_link) {
       speaker = str_replace_all(speaker, "MUSIC", ""),
       speaker = str_replace_all(speaker, "BREAK", "")
     )
-  }
-  # remove web formatting for new lines or tabs
-  # transcript$line <- transcript$line %>%
-  #   str_replace_all("[\\\n]", "") %>% # remove new lines
-  #   str_replace_all("[\\\t]", "") %>% # remove tabs
-  #   str_trim() # remove leading and trailing whitespace
 
   # do some light cleaning of the transcript
   transcript_new <- transcript_clean %>%
-    # filter(
-    #   nchar(line) > 0, # make sure lines have _some_ content in them
-    #   # !str_detect(line, "^\\[") # make sure the line isn't non-spoken, aka '[Laughs]' or '[Reply All Theme Music]'
-    # ) %>%
     mutate(
-      linenumber = row_number(), # get the line number (1 is the first line, 2 is the second, etc.)
-      # speaker = str_extract(line, "^[[:upper:]]+"), # speaker of the line is refered to at the start of a line, e.g. '[ALEX]' or '[PJ]'
-      # line = str_replace_all(line, "^[[:upper:]]+ [[:upper:]]+:", ""), # get rid of extra crap in lines TODO find exmaple
-      # text = str_replace_all(line, "^[[:upper:]]+:", "") # TODO what is this again?
+      linenumber = row_number() # get the line number (1 is the first line, 2 is the second, etc.)
     ) %>%
     select(speaker, text, linenumber)
 
@@ -136,7 +99,7 @@ getTranscript <- function(episode_link) {
 }
 
 # use purrr to map the 'getTranscript' function over all of the URLS in the ep_data data frame
-# takes ~10 minutes to run
+# takes ~5 minutes to run
 ep_data <- ep_data %>%
   mutate(
     transcript = map(episode_link, getTranscript)
@@ -161,7 +124,7 @@ tidy_ep_data_clean %>%
   filter(n >= 500)
 
 # plot words used 1000 times
-tidy_ep_data_clean %>% group_by(speaker) %>% tally() %>% View()
+tidy_ep_data_clean %>% group_by(speaker) %>%
   group_by(word) %>%
   count(word, sort = TRUE) %>%
   filter(n >= 500) %>%
@@ -181,28 +144,18 @@ bing <- get_sentiments("bing")
 
 # create a dataframe the joins words to sentiment, divides sentiment
 #   accross the length of the transcript, and organizes the data for plotting
-reply_all_sentiment <- tidy_ep_data_clean %>%
-  inner_join(bing) %>%
-  count(index = linenumber %/% 5, sentiment) %>%
-  tidyr::spread(sentiment, n, fill = 0) %>%
-  mutate(
-    sentiment = positive - negative,
-  )
-
-# guick plot of sentiment over the length of the episode
-ggplot(reply_all_sentiment, aes(x = index, y = sentiment, group = index)) +
-  geom_line(stat = "identity", show.legend = FALSE, aes(color = sentiment_cat)) +
-  theme_minimal()
-
-
-
-
-
-
-test <- test_link %>%
-  read_html() %>%
-  html_nodes(".episode-transcript") %>%
-  html_text()
-
+# reply_all_sentiment <- tidy_ep_data_clean %>%
+#   inner_join(bing) %>%
+#   group_by(episode) %>%
+#   count(index = linenumber %/% 5, sentiment) %>%
+#   tidyr::spread(sentiment, n, fill = 0) %>%
+#   mutate(
+#     sentiment = positive - negative,
+#   )
+#
+# # guick plot of sentiment over the length of the episode
+# ggplot(reply_all_sentiment, aes(x = index, y = sentiment, group = index)) +
+#   geom_line(stat = "identity") +
+#   theme_bw() +
 
 
