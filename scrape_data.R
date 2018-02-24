@@ -117,6 +117,30 @@ tidy_ep_data_clean <- tidy_ep_data %>%
   filter(!is.na(word)) %>%
   anti_join(stop_words)
 
+tidy_ep_data_clean <- tidy_ep_data_clean %>%
+  mutate(
+    speaker = trimws(speaker),
+    speaker = case_when(
+      speaker == "ALEX" ~ "ALEX GOLDMAN",
+      speaker == "GOLDMAN" ~ "ALEX GOLDMAN",
+      speaker == "AG" ~ "ALEX GOLDMAN",
+      speaker == "PJ" ~ "PJ VOGT",
+      speaker == "BLUMBERG" ~ "ALEX BLUMBERG",
+      speaker == "SRUTHI" ~ "SRUTHI PINNAMANENI",
+      TRUE ~ speaker
+    )
+  ) %>%
+  filter(
+    n() > 100,
+    speaker != "FADES OUTCREDITS SONG PLAYSCREDITS",
+    speaker != "CREDITSALEX",
+    speaker != "CREDITSALEX GOLDMAN",
+    speaker != "CREDITSPJ",
+    speaker != "AD PJ",
+    speaker != "ADPJ",
+    speaker != "OUTPJ"
+  )
+
 # quick check of the top words accross all episodes
 tidy_ep_data_clean %>%
   group_by(word) %>%
@@ -139,23 +163,34 @@ tidy_ep_data_clean %>% group_by(speaker) %>%
     ) +
     theme_bw(base_size = 16)
 
-# import sentiment information, via tidytext
-bing <- get_sentiments("bing")
+# Compare word frequency
+frequency <- tidy_ep_data_clean %>%
+  filter(speaker %in% c("ALEX GOLDMAN", "PJ VOGT")) %>%
+  count(speaker, word) %>%
+  group_by(speaker) %>%
+  mutate(proportion = n / sum(n)) %>%
+  select(-n) %>%
+  spread(speaker, proportion)
 
-# create a dataframe the joins words to sentiment, divides sentiment
-#   accross the length of the transcript, and organizes the data for plotting
-# reply_all_sentiment <- tidy_ep_data_clean %>%
-#   inner_join(bing) %>%
-#   group_by(episode) %>%
-#   count(index = linenumber %/% 5, sentiment) %>%
-#   tidyr::spread(sentiment, n, fill = 0) %>%
-#   mutate(
-#     sentiment = positive - negative,
-#   )
-#
-# # guick plot of sentiment over the length of the episode
-# ggplot(reply_all_sentiment, aes(x = index, y = sentiment, group = index)) +
-#   geom_line(stat = "identity") +
-#   theme_bw() +
+# Compare word frequency plot
+ggplot(frequency, aes(x = `PJ VOGT`, y = `ALEX GOLDMAN`, color = abs(`ALEX GOLDMAN` - `PJ VOGT`))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
+  theme_bw(base_size = 16) +
+  theme(legend.position = "none") +
+  labs(y = "Alex", x = "PJ", title = "Comparing word frequencies of PJ and Alex")
 
 
+sentiment_data <- tidy_ep_data_clean %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(episode, index = linenumber %/% 5, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+ggplot(sentiment_data, aes(index, sentiment, fill = episode)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~episode, scales = "free_x")
