@@ -5,6 +5,7 @@ library(tidytext)
 library(ggplot2)
 library(tidyr)
 library(purrr)
+library(scales)
 
 # base url
 reply_all_url <- "https://www.gimletmedia.com/reply-all/all#all-episodes-list"
@@ -56,7 +57,8 @@ getTranscript <- function(episode_link) {
     filter(
       text != "Transcript",
       text != "[Theme music",
-      text != "[theme music"
+      text != "[theme music",
+      text != "[Intro Music"
     )
 
   ## ok this is gross, but handling some bad laling in specific episodes
@@ -184,7 +186,6 @@ ggplot(frequency, aes(x = `PJ VOGT`, y = `ALEX GOLDMAN`, color = abs(`ALEX GOLDM
   theme(legend.position = "none") +
   labs(y = "Alex", x = "PJ", title = "Comparing word frequencies of PJ and Alex")
 
-
 sentiment_data <- tidy_ep_data_clean %>%
   inner_join(get_sentiments("bing")) %>%
   count(episode, index = linenumber %/% 5, sentiment) %>%
@@ -194,3 +195,24 @@ sentiment_data <- tidy_ep_data_clean %>%
 ggplot(sentiment_data, aes(index, sentiment, fill = episode)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~episode, scales = "free_x")
+
+# contribution to sentiment
+bing_word_counts <- tidy_ep_data_clean %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(
+    y = "\nContribution to sentiment",
+    x = NULL
+    ) +
+  coord_flip() +
+  theme_bw()
