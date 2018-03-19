@@ -231,7 +231,13 @@ tidy_ep_data_clean <- tidy_ep_data %>%
 
 And after all of that, we now have some sort of nice text data from every episode of Reply All!
 ```{r}
+glimpse(tidy_ep_data_clean)
 head(tidy_ep_data_clean) %>% knitr::kable()
+```
+
+We can write the data to a `.csv` for anyone to use in the future.
+```{r}
+readr::write_csv(tidy_ep_data_clean, "reply_all_text_data.csv")
 ```
 
 In part 2, we will start to analyze this data!

@@ -350,8 +350,20 @@ tidy_ep_data_clean <- tidy_ep_data %>%
 ```
 
 And after all of that, we now have some sort of nice text data from
-every episode of Reply
-All\!
+every episode of Reply All\!
+
+``` r
+glimpse(tidy_ep_data_clean)
+```
+
+    ## Observations: 579,604
+    ## Variables: 6
+    ## $ link           <chr> "/reply-all/118#episode-player", "/reply-all/11...
+    ## $ episode_number <dbl> 118, 118, 118, 118, 118, 118, 118, 118, 118, 11...
+    ## $ full_link      <chr> "https://www.gimletmedia.com/reply-all/118#epis...
+    ## $ speaker        <chr> "ALEX GOLDMAN", "ALEX GOLDMAN", "ALEX GOLDMAN",...
+    ## $ linenumber     <int> 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3,...
+    ## $ word           <chr> "from", "gimlet", "this", "is", "reply", "all",...
 
 ``` r
 head(tidy_ep_data_clean) %>% knitr::kable()
@@ -365,5 +377,11 @@ head(tidy_ep_data_clean) %>% knitr::kable()
 | /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | is     |
 | /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | reply  |
 | /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | all    |
+
+We can write the data to a `.csv` for anyone to use in the future.
+
+``` r
+readr::write_csv(tidy_ep_data_clean, "reply_all_text_data.csv")
+```
 
 In part 2, we will start to analyze this data\!
