@@ -2,12 +2,13 @@
 title: "Reply All Text Analysis"
 author: "Noah Landesberg"
 date: "3/17/2018"
-output: html_document
+output: github_document
 ---
+## This is an early draft
 
-One of my favorite podcasts is [Reply All](https://www.gimletmedia.com/reply-all), a show (roughly) about technology and the internet. It is  hosted by PJ Vogt and Alex Goldman, as well as some fantastic reporters and produecers who contribute regularily, and tells some of the most fasincating stories about the way we interact with technology. 
+One of my favorite podcasts is [Reply All](https://www.gimletmedia.com/reply-all), a show (roughly) about technology and the internet. It is  hosted by PJ Vogt and Alex Goldman, as well as some fantastic reporters and producers who contribute regularly, and tells some of the most fascinating stories about the way we interact with technology. 
 
-The show has been in production since 2014, and for a time felt like a great little secret, but their website now indicates that the show is downloaded "around 3.5 million times per month." If you haven't listened, I'd highly recomend checking it out. Some of my favorite episodes are (in no particular order):
+The show has been in production since 2014, and for a time felt like a great little secret, but their website now indicates that the show is downloaded "around 3.5 million times per month." If you haven't listened, I'd highly recommend checking it out. Some of my favorite episodes are (in no particular order):
 
 * [The Cathedral](https://www.gimletmedia.com/reply-all/50-the-cathedral#episode-player)  
 * [Boy in Photo](https://www.gimletmedia.com/reply-all/79-boy-in-photo#episode-player)  
@@ -15,6 +16,10 @@ The show has been in production since 2014, and for a time felt like a great lit
 * [Shine on You Crazy Goldman](https://www.gimletmedia.com/reply-all/44-shine-on-you-crazy-goldman#episode-player)  
 * [Long Distance pt.1](https://www.gimletmedia.com/reply-all/long-distance#episode-player) and [Long Distance pt.2](https://www.gimletmedia.com/reply-all/103-long-distance-part-ii#episode-player)  
 * [Zardulu](https://www.gimletmedia.com/reply-all/zardulu#episode-player)  
+
+I thought it would be a fun project to take the transcripts from every episode of Reply All and see what we can learn about the show. As is often the case in data science, 80% of the challenge is to gather and clean the data. 
+
+To gather data, we will make use of a few R packages. `rvest` will do most of the web scraping, and `dplyr`, `tidyr`, and `stringr` will help to clean and organize our data. So, without further ado, let's load 'em up!
 
 ```{r load-packages, message = FALSE}
 library(rvest) # for web scraping
@@ -26,13 +31,13 @@ library(scales) # make plots even nicer
 library(tidyr) # for data organization
 library(purrr) # for iteration
 ```
-
-To start, we will pull up a webpage with all episodes of Reply All
+    
+To get the transcripts of all the episodes, first we need to know which episodes are out there. By navigating to the [Reply All website](https://www.gimletmedia.com/reply-all/all#all-episodes-list), we can load a handy list of all episodes as well as some hyperlinks that will take us into the individual web page for each episode. This link will serve as the starting point for our web-scraping.
 ```{r set-base-url}
 reply_all_url <- "https://www.gimletmedia.com/reply-all/all#all-episodes-list"
 ```
-
-We will use some functions from `rvest` to make web scraping nice and easy. 
+  
+We will use some functions from `rvest` to pull the hyperlinks to every episode we will eventually want to read the transcript from. This was my first time using `rvest`, and I found [this post](https://stat4701.github.io/edav/2015/04/02/rvest_tutorial/) from Justin Law and Jordan Rosenblum to be helpful, as well as [this RStudio blog post](https://blog.rstudio.com/2014/11/24/rvest-easy-web-scraping-with-r/) from Hadley Wickham. To get the episode links, we will look for all HTML in the `<a>` anchor tag and pull the `href` attribute where the hyperlink lives. 
 ```{r get-episode-links}
 episode_links <- reply_all_url %>%
   read_html() %>% # read HTML from page
@@ -40,10 +45,12 @@ episode_links <- reply_all_url %>%
   html_attr("href") %>% # get the href attribute from the tag, which is where the hyperlink is stored
   tibble(link = .) # put the data in a tibble with the variable episode
 
-episode_links
+tail(episode_links) %>% knitr::kable()
 ```
-Clean out 'bad' episode names that are not relevant.
+  
+We can tell by looking at the `head` (first 6 rows) and the `tail` (last 6 rows) of the list of episode links that there are some links to other pages here that are not of interest, like the privacy policy or the terms of service.
 
+Let's clean this up a little bit, by only including episodes that reference `#episode-player` at the end of their link, indicated that there is an episode there, and not some other webpage. We can also filter out episodes that are rebroadcasts or presentations of other shows in the Reply All feed. The process of filtering down this list took some trial and error, as the formatting of episode titles in the hyperlink was inconsistent. 
 ```{r clean-episode-links}
 episode_links <- episode_links %>%
   filter(
@@ -55,41 +62,46 @@ episode_links <- episode_links %>%
     !str_detect(link, "presents"), # or presentations of other shows
     !str_detect(link, "introducing"), # or introductions of other shows
     !str_detect(link, "updated"), # or updated versions of old episodes
-    link != "/reply-all/6-this-proves-everything#episode-player" # sneaky update of an old episode
+    link != "/reply-all/6-this-proves-everything#episode-player" # sneaky update of an old episode that is not labeled well
   ) %>%
   distinct() # and after all of that, no duplicates
 
 episode_links <- episode_links %>% 
   mutate(episode_number = nrow(episode_links) + 1 - row_number()) # add in the episode number
 
-head(episode_links)
+head(episode_links) %>% knitr::kable()
 ```
+  
+We can also add in the episode number, which I originally tried to parse out from the string, but I am not good at regular expression, so I just used some math to back in to it. 
 
-Now get the full link to the episode (including the gimletmedia.com part)
+Finally, we add in the full web link, by appending the hyperlink extension to the Gimlet Media homepage (`gimetmedia.com`).
 ```{r get-full-episode-link}
 ep_data <- episode_links %>%
   mutate(
     full_link = paste0("https://www.gimletmedia.com", link)
   )
 
-head(ep_data)
+head(ep_data) %>% knitr::kable()
 ```
-
-Write a function to get the transcript from an epsiode link
+  
+Now that we have a link to every episode we want to parse, it is time to write a function that, when given a link, returns a transcript. This took a lot of time to nail down. As alluded to, the data and transcript formatting as inconsistent and messy. It took a fair amount of time and iteration to try to get this right. I a lot of time on [https://regex101.com](https://regex101.com) testing out stuff.
 ```{r}
 getTranscript <- function(episode_link) {
   
-  # This print statement helps us to understand the progress of the 
-  # function when it is running.
-  print(episode_link) 
+  # print statement helps to understand the progress of the function when it is running (commented out for now)
+  # print(episode_link) 
 
-  # Get the transcript from the webpage using the CSS node '.episode-transcript'
+  # get the transcript from the webpage by referencing the CSS node '.episode-transcript'
   transcript <- episode_link %>%
     read_html() %>%
     html_nodes(".episode-transcript") %>%
     html_text()
-
-  episode_text <- data_frame(unlist(strsplit(transcript, "[^.a-z]+:", perl = T))) %>% setNames("text")
+  
+  # this is an attempt at spliting up the text by speaker, so that
+  # each string is seperated by the person who said it.
+  episode_text <- data_frame(
+    unlist(strsplit(transcript, "[^.a-z]+:", perl = T)) # this regex is to identify [ALEX]: or [PJ]: at the begining of a line
+  ) %>% setNames("text")
   
   episode_text <- episode_text %>% 
     mutate(
@@ -104,7 +116,7 @@ getTranscript <- function(episode_link) {
       tolower(text) != "transcript\n        [theme music" # or a different mix of things
     )
 
-  # Ok this is gross, but handling some specific episodes where the transcript is not entered in a consistant way
+  # ok this is gross, but handling some specific episodes where the transcript is not entered in a consistant way
   if (episode_link == "https://www.gimletmedia.com/reply-all/79-boy-in-photo#episode-player") {
     speaker <- rbind(
       "PJ", 
@@ -156,9 +168,17 @@ getTranscript <- function(episode_link) {
 }
 ```
 
+
+Now that we have a function, let's test it for a single episode to show it in action.
+```{r}
+getTranscript("https://www.gimletmedia.com/reply-all/114-apocalypse-soon#episode-player") %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+Now we can use `purrr` to iterate through every episode and 'map' the function `getTranscript` to each episode link. I learned a lot about iterating with `purrr` from [this tutorial](https://jennybc.github.io/purrr-tutorial/) from Jenny Brian and the chapter from [R for Data Science on Iteration](http://r4ds.had.co.nz/iteration.html) by Garrett Grolemund and Hadley Wickham. This takes ~3 minutes to run, depending on your internet connection.
 ```{r get-all-transcripts}
 # use purrr to map the 'getTranscript' function over all of the URLs in the ep_data data frame
-# takes ~3 minutes to run (depending on the speed of your internet connection)
 ep_data <- ep_data %>%
   mutate(
     transcript = map(full_link, getTranscript)
@@ -168,10 +188,11 @@ ep_data <- ep_data %>%
 tidy_ep_data <- ep_data %>%
   unnest(transcript)
 
-head(tidy_ep_data)
+head(tidy_ep_data) %>% knitr::kable()
 ```
-
-```{r}
+  
+Now that we have a big data frame, we can do a little more cleaning of the data. Arguably, this is avoidable with more intelligent regex and string work earlier, but this cleanup will have to do for now. I briefly use the `zoo` package to fill in some NA values in the `speaker` column using the previous non-NA value (inspired by [this StackoverFlow answer](https://stackoverflow.com/a/7735681/9185424)).
+```{r clean-up-data}
 # turn missing values to NA and then fill using 
 # the na.locf (last observation carried forward) function from the 'zoo' package
 tidy_ep_data <- tidy_ep_data %>% 
@@ -208,6 +229,9 @@ tidy_ep_data_clean <- tidy_ep_data %>%
   )
 ```
 
+And after all of that, we now have some sort of nice text data from every episode of Reply All!
 ```{r}
-head(tidy_ep_data_clean)
+head(tidy_ep_data_clean) %>% knitr::kable()
 ```
+
+In part 2, we will start to analyze this data!
