@@ -20,16 +20,16 @@ Start by reading in our data (link to previous post) [link to
 data](https://github.com/landesbergn/reply-all/blob/master/reply_all_text_data.csv).
 
 ``` r
-tidy_ep_data <- readr::read_csv("reply_all_text_data.csv")
+tidy_ep_data <- readr::read_csv("https://github.com/landesbergn/reply-all/raw/master/reply_all_text_data.csv")
 ```
 
     ## Parsed with column specification:
     ## cols(
     ##   link = col_character(),
-    ##   episode_number = col_integer(),
+    ##   episode_number = col_double(),
     ##   full_link = col_character(),
     ##   speaker = col_character(),
-    ##   linenumber = col_integer(),
+    ##   linenumber = col_double(),
     ##   word = col_character()
     ## )
 
@@ -45,18 +45,18 @@ tidy_ep_data %>%
 
     ## # A tibble: 10 x 2
     ## # Groups:   word [10]
-    ##     word     n
+    ##    word      n
     ##    <chr> <int>
-    ##  1   the 19554
-    ##  2   and 17655
-    ##  3    to 14342
-    ##  4     i 14043
-    ##  5     a 13979
-    ##  6  that 11176
-    ##  7  like 10857
-    ##  8   you 10704
-    ##  9    of 10334
-    ## 10    it  8598
+    ##  1 the   23932
+    ##  2 and   21301
+    ##  3 to    17538
+    ##  4 i     16974
+    ##  5 a     16750
+    ##  6 like  13883
+    ##  7 that  13412
+    ##  8 you   12786
+    ##  9 of    12560
+    ## 10 it    10341
 
 We can import the “stop\_words” data set from the `tidytext` package.
 
@@ -66,14 +66,14 @@ head(stop_words)
 ```
 
     ## # A tibble: 6 x 2
-    ##        word lexicon
-    ##       <chr>   <chr>
-    ## 1         a   SMART
-    ## 2       a's   SMART
-    ## 3      able   SMART
-    ## 4     about   SMART
-    ## 5     above   SMART
-    ## 6 according   SMART
+    ##   word      lexicon
+    ##   <chr>     <chr>  
+    ## 1 a         SMART  
+    ## 2 a's       SMART  
+    ## 3 able      SMART  
+    ## 4 about     SMART  
+    ## 5 above     SMART  
+    ## 6 according SMART
 
 ``` r
 # remove stop words with an anti_join
@@ -95,18 +95,18 @@ tidy_ep_data_clean %>%
 
     ## # A tibble: 10 x 2
     ## # Groups:   word [10]
-    ##      word     n
-    ##     <chr> <int>
-    ##  1 people  2498
-    ##  2   yeah  2394
-    ##  3     it  1934
-    ##  4      i  1679
-    ##  5     uh  1268
-    ##  6 laughs  1054
-    ##  7   time  1024
-    ##  8     um  1023
-    ##  9   that   930
-    ## 10     he   902
+    ##    word       n
+    ##    <chr>  <int>
+    ##  1 people  3068
+    ##  2 yeah    2925
+    ##  3 it      2350
+    ##  4 i       2054
+    ##  5 uh      1484
+    ##  6 laughs  1344
+    ##  7 um      1281
+    ##  8 time    1230
+    ##  9 that    1139
+    ## 10 don     1123
 
 ``` r
 # plot words used 500 times
@@ -151,9 +151,9 @@ ggplot(frequency, aes(x = `PJ VOGT`, y = `ALEX GOLDMAN`, color = abs(`ALEX GOLDM
   labs(y = "Alex", x = "PJ", title = "Comparing word frequencies of PJ and Alex")
 ```
 
-    ## Warning: Removed 8101 rows containing missing values (geom_point).
+    ## Warning: Removed 8848 rows containing missing values (geom_point).
 
-    ## Warning: Removed 8101 rows containing missing values (geom_text).
+    ## Warning: Removed 8848 rows containing missing values (geom_text).
 
 ![](Reply_All_Text_Analysis_2_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
