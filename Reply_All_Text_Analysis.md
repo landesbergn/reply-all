@@ -3,7 +3,8 @@ Reply All Text Analysis
 Noah Landesberg
 3/17/2018
 
-## This is an early draft
+**Download CSV here:
+<https://github.com/landesbergn/reply-all/blob/master/reply_all_text_data.csv>**
 
 One of my favorite podcasts is [Reply
 All](https://www.gimletmedia.com/reply-all), a show (roughly) about
@@ -88,10 +89,10 @@ tail(episode_links) %>% knitr::kable()
 
 | link                                                                   |
 | :--------------------------------------------------------------------- |
-| /reply-all/3-i-didnt-mean-to-break-the-internet\#episode-player        |
-| /reply-all/2-instagram-for-doctors\#episode-player                     |
 | /reply-all/1-an-app-sends-a-stranger-to-say-i-love-you\#episode-player |
 | /                                                                      |
+| /about                                                                 |
+| /careers                                                               |
 | /terms-of-service                                                      |
 | /privacy-policy                                                        |
 
@@ -119,7 +120,8 @@ episode_links <- episode_links %>%
     !str_detect(link, "presents"), # or presentations of other shows
     !str_detect(link, "introducing"), # or introductions of other shows
     !str_detect(link, "updated"), # or updated versions of old episodes
-    link != "/reply-all/6-this-proves-everything#episode-player" # sneaky update of an old episode that is not labeled well
+    link != "/reply-all/6-this-proves-everything#episode-player", # sneaky update of an old episode that is not labeled well
+    link != "/reply-all/104-the-case-of-the-phantom-caller#episode-player" # another one
   ) %>%
   distinct() # and after all of that, no duplicates
 
@@ -129,14 +131,14 @@ episode_links <- episode_links %>%
 head(episode_links) %>% knitr::kable()
 ```
 
-| link                                                                | episode\_number |
-| :------------------------------------------------------------------ | --------------: |
-| /reply-all/118\#episode-player                                      |             118 |
-| /reply-all/117-the-worlds-most-expensive-free-watch\#episode-player |             117 |
-| /reply-all/116-the-process\#episode-player                          |             116 |
-| /reply-all/115-bitcoin-hunter\#episode-player                       |             115 |
-| /reply-all/114-apocalypse-soon\#episode-player                      |             114 |
-| /reply-all/113-reply-alls-year-end-extravaganza\#episode-player     |             113 |
+| link                                                                 | episode\_number |
+| :------------------------------------------------------------------- | --------------: |
+| /reply-all/135-the-robocall-conundrum\#episode-player                |             135 |
+| /reply-all/134-the-year-of-the-wallop\#episode-player                |             134 |
+| /reply-all/133-reply-alls-2018-year-end-extravaganza\#episode-player |             133 |
+| /reply-all/132-negative-mount-pleasant\#episode-player               |             132 |
+| /reply-all/131-surefire-investigations\#episode-player               |             131 |
+| /reply-all/130-lizard\#episode-player                                |             130 |
 
 We can also add in the episode number, which I originally tried to parse
 out from the string, but I am not good at regular expression, so I just
@@ -154,14 +156,14 @@ ep_data <- episode_links %>%
 head(ep_data) %>% knitr::kable()
 ```
 
-| link                                                                | episode\_number | full\_link                                                                                      |
-| :------------------------------------------------------------------ | --------------: | :---------------------------------------------------------------------------------------------- |
-| /reply-all/118\#episode-player                                      |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player>                                      |
-| /reply-all/117-the-worlds-most-expensive-free-watch\#episode-player |             117 | <https://www.gimletmedia.com/reply-all/117-the-worlds-most-expensive-free-watch#episode-player> |
-| /reply-all/116-the-process\#episode-player                          |             116 | <https://www.gimletmedia.com/reply-all/116-the-process#episode-player>                          |
-| /reply-all/115-bitcoin-hunter\#episode-player                       |             115 | <https://www.gimletmedia.com/reply-all/115-bitcoin-hunter#episode-player>                       |
-| /reply-all/114-apocalypse-soon\#episode-player                      |             114 | <https://www.gimletmedia.com/reply-all/114-apocalypse-soon#episode-player>                      |
-| /reply-all/113-reply-alls-year-end-extravaganza\#episode-player     |             113 | <https://www.gimletmedia.com/reply-all/113-reply-alls-year-end-extravaganza#episode-player>     |
+| link                                                                 | episode\_number | full\_link                                                                                       |
+| :------------------------------------------------------------------- | --------------: | :----------------------------------------------------------------------------------------------- |
+| /reply-all/135-the-robocall-conundrum\#episode-player                |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player>                |
+| /reply-all/134-the-year-of-the-wallop\#episode-player                |             134 | <https://www.gimletmedia.com/reply-all/134-the-year-of-the-wallop#episode-player>                |
+| /reply-all/133-reply-alls-2018-year-end-extravaganza\#episode-player |             133 | <https://www.gimletmedia.com/reply-all/133-reply-alls-2018-year-end-extravaganza#episode-player> |
+| /reply-all/132-negative-mount-pleasant\#episode-player               |             132 | <https://www.gimletmedia.com/reply-all/132-negative-mount-pleasant#episode-player>               |
+| /reply-all/131-surefire-investigations\#episode-player               |             131 | <https://www.gimletmedia.com/reply-all/131-surefire-investigations#episode-player>               |
+| /reply-all/130-lizard\#episode-player                                |             130 | <https://www.gimletmedia.com/reply-all/130-lizard#episode-player>                                |
 
 Now that we have a link to every episode we want to parse, it is time to
 write a function that, when given a link, returns a transcript. This
@@ -174,7 +176,7 @@ iteration to try to get this right. I a lot of time on
 getTranscript <- function(episode_link) {
   
   # print statement helps to understand the progress of the function when it is running (commented out for now)
-  # print(episode_link) 
+  # print(episode_link)
 
   # get the transcript from the webpage by referencing the CSS node '.episode-transcript'
   transcript <- episode_link %>%
@@ -184,7 +186,7 @@ getTranscript <- function(episode_link) {
   
   # this is an attempt at spliting up the text by speaker, so that
   # each string is seperated by the person who said it.
-  episode_text <- data_frame(
+  episode_text <- tibble(
     unlist(strsplit(transcript, "[^.a-z]+:", perl = T)) # this regex is to identify [ALEX]: or [PJ]: at the begining of a line
   ) %>% setNames("text")
   
@@ -198,7 +200,8 @@ getTranscript <- function(episode_link) {
       tolower(text) != "[theme music", # get rid of Theme (or theme music)
       tolower(text) != "[intro music", # get rid of Intro Music (or intro music)
       tolower(text) != "transcript\n        [intro music", # or a mix of things
-      tolower(text) != "transcript\n        [theme music" # or a different mix of things
+      tolower(text) != "transcript\n        [theme music", # or a different mix of things
+      tolower(text) != "transcript\n        [reply all theme"
     )
 
   # ok this is gross, but handling some specific episodes where the transcript is not entered in a consistant way
@@ -296,14 +299,14 @@ tidy_ep_data <- ep_data %>%
 head(tidy_ep_data) %>% knitr::kable()
 ```
 
-| link                           | episode\_number | full\_link                                                 | speaker                | linenumber | word   |
-| :----------------------------- | --------------: | :--------------------------------------------------------- | :--------------------- | ---------: | :----- |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | REPLY ALL ALEX GOLDMAN |          1 | from   |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | REPLY ALL ALEX GOLDMAN |          1 | gimlet |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | REPLY ALL ALEX GOLDMAN |          1 | this   |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | REPLY ALL ALEX GOLDMAN |          1 | is     |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | REPLY ALL ALEX GOLDMAN |          1 | reply  |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | REPLY ALL ALEX GOLDMAN |          1 | all    |
+| link                                                  | episode\_number | full\_link                                                                        | speaker | linenumber | word   |
+| :---------------------------------------------------- | --------------: | :-------------------------------------------------------------------------------- | :------ | ---------: | :----- |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | from   |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | gimlet |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | this   |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | is     |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | reply  |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | all    |
 
 Now that we have a big data frame, we can do a little more cleaning of
 the data. Arguably, this is avoidable with more intelligent regex and
@@ -356,27 +359,27 @@ every episode of Reply All\!
 glimpse(tidy_ep_data_clean)
 ```
 
-    ## Observations: 579,604
+    ## Observations: 704,321
     ## Variables: 6
-    ## $ link           <chr> "/reply-all/118#episode-player", "/reply-all/11...
-    ## $ episode_number <dbl> 118, 118, 118, 118, 118, 118, 118, 118, 118, 11...
-    ## $ full_link      <chr> "https://www.gimletmedia.com/reply-all/118#epis...
-    ## $ speaker        <chr> "ALEX GOLDMAN", "ALEX GOLDMAN", "ALEX GOLDMAN",...
-    ## $ linenumber     <int> 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3,...
-    ## $ word           <chr> "from", "gimlet", "this", "is", "reply", "all",...
+    ## $ link           <chr> "/reply-all/135-the-robocall-conundrum#episode-pl…
+    ## $ episode_number <dbl> 135, 135, 135, 135, 135, 135, 135, 135, 135, 135,…
+    ## $ full_link      <chr> "https://www.gimletmedia.com/reply-all/135-the-ro…
+    ## $ speaker        <chr> "PJ VOGT", "PJ VOGT", "PJ VOGT", "PJ VOGT", "PJ V…
+    ## $ linenumber     <int> 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3…
+    ## $ word           <chr> "from", "gimlet", "this", "is", "reply", "all", "…
 
 ``` r
 head(tidy_ep_data_clean) %>% knitr::kable()
 ```
 
-| link                           | episode\_number | full\_link                                                 | speaker      | linenumber | word   |
-| :----------------------------- | --------------: | :--------------------------------------------------------- | :----------- | ---------: | :----- |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | from   |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | gimlet |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | this   |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | is     |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | reply  |
-| /reply-all/118\#episode-player |             118 | <https://www.gimletmedia.com/reply-all/118#episode-player> | ALEX GOLDMAN |          1 | all    |
+| link                                                  | episode\_number | full\_link                                                                        | speaker | linenumber | word   |
+| :---------------------------------------------------- | --------------: | :-------------------------------------------------------------------------------- | :------ | ---------: | :----- |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | from   |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | gimlet |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | this   |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | is     |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | reply  |
+| /reply-all/135-the-robocall-conundrum\#episode-player |             135 | <https://www.gimletmedia.com/reply-all/135-the-robocall-conundrum#episode-player> | PJ VOGT |          1 | all    |
 
 We can write the data to a `.csv` for anyone to use in the future.
 

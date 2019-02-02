@@ -4,7 +4,8 @@ author: "Noah Landesberg"
 date: "3/17/2018"
 output: github_document
 ---
-## This is an early draft
+
+**Download CSV here: [https://github.com/landesbergn/reply-all/blob/master/reply_all_text_data.csv](https://github.com/landesbergn/reply-all/blob/master/reply_all_text_data.csv)**
 
 One of my favorite podcasts is [Reply All](https://www.gimletmedia.com/reply-all), a show (roughly) about technology and the internet. It is  hosted by PJ Vogt and Alex Goldman, as well as some fantastic reporters and producers who contribute regularly, and tells some of the most fascinating stories about the way we interact with technology. 
 
@@ -62,7 +63,8 @@ episode_links <- episode_links %>%
     !str_detect(link, "presents"), # or presentations of other shows
     !str_detect(link, "introducing"), # or introductions of other shows
     !str_detect(link, "updated"), # or updated versions of old episodes
-    link != "/reply-all/6-this-proves-everything#episode-player" # sneaky update of an old episode that is not labeled well
+    link != "/reply-all/6-this-proves-everything#episode-player", # sneaky update of an old episode that is not labeled well
+    link != "/reply-all/104-the-case-of-the-phantom-caller#episode-player" # another one
   ) %>%
   distinct() # and after all of that, no duplicates
 
@@ -85,11 +87,11 @@ head(ep_data) %>% knitr::kable()
 ```
   
 Now that we have a link to every episode we want to parse, it is time to write a function that, when given a link, returns a transcript. This took a lot of time to nail down. As alluded to, the data and transcript formatting as inconsistent and messy. It took a fair amount of time and iteration to try to get this right. I a lot of time on [https://regex101.com](https://regex101.com) testing out stuff.
-```{r}
+```{r get-transcript-function}
 getTranscript <- function(episode_link) {
   
   # print statement helps to understand the progress of the function when it is running (commented out for now)
-  # print(episode_link) 
+  # print(episode_link)
 
   # get the transcript from the webpage by referencing the CSS node '.episode-transcript'
   transcript <- episode_link %>%
@@ -99,7 +101,7 @@ getTranscript <- function(episode_link) {
   
   # this is an attempt at spliting up the text by speaker, so that
   # each string is seperated by the person who said it.
-  episode_text <- data_frame(
+  episode_text <- tibble(
     unlist(strsplit(transcript, "[^.a-z]+:", perl = T)) # this regex is to identify [ALEX]: or [PJ]: at the begining of a line
   ) %>% setNames("text")
   
@@ -113,7 +115,8 @@ getTranscript <- function(episode_link) {
       tolower(text) != "[theme music", # get rid of Theme (or theme music)
       tolower(text) != "[intro music", # get rid of Intro Music (or intro music)
       tolower(text) != "transcript\n        [intro music", # or a mix of things
-      tolower(text) != "transcript\n        [theme music" # or a different mix of things
+      tolower(text) != "transcript\n        [theme music", # or a different mix of things
+      tolower(text) != "transcript\n        [reply all theme"
     )
 
   # ok this is gross, but handling some specific episodes where the transcript is not entered in a consistant way
@@ -170,7 +173,7 @@ getTranscript <- function(episode_link) {
 
 
 Now that we have a function, let's test it for a single episode to show it in action.
-```{r}
+```{r get-transcripts-test}
 getTranscript("https://www.gimletmedia.com/reply-all/114-apocalypse-soon#episode-player") %>% 
   head() %>% 
   knitr::kable()
@@ -236,7 +239,7 @@ head(tidy_ep_data_clean) %>% knitr::kable()
 ```
 
 We can write the data to a `.csv` for anyone to use in the future.
-```{r}
+```{r write-to-csv}
 readr::write_csv(tidy_ep_data_clean, "reply_all_text_data.csv")
 ```
 
